@@ -172,7 +172,6 @@
 //   console.log(`✅ Server running at http://localhost:${PORT}`);
 // });
 
-
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -180,7 +179,8 @@ const multer = require('multer');
 const pdfParse = require('pdf-parse');
 require('dotenv').config();
 
-console.log("🔐 Loaded API Key:", process.env.OPENROUTER_API_KEY); 
+// Confirm API key loaded
+console.log("🔐 Loaded API Key:", process.env.OPENROUTER_API_KEY?.slice(0, 10) + '...');
 
 const app = express();
 app.use(cors({
@@ -198,14 +198,16 @@ app.post('/api/chat', async (req, res) => {
   if (!message || message.trim() === "") return res.status(400).json({ error: 'Message is required' });
 
   try {
+    console.log("📨 Sending /api/chat request to OpenRouter...");
+
     const response = await axios.post('https://openrouter.ai/api/v1/chat/completions', {
       model: 'mistralai/mistral-7b-instruct',
       messages: [{ role: "user", content: message }],
     }, {
       headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
-        'X-Title': 'My AI App'
+        'X-Title': 'My Ai App'
       }
     });
 
@@ -316,12 +318,14 @@ Respond only in JSON format:
 `;
 
   try {
+    console.log("📨 Sending analyzeTextWithAI() request to OpenRouter...");
+
     const aiResponse = await axios.post('https://openrouter.ai/api/v1/chat/completions', {
       model: 'mistralai/mistral-7b-instruct',
       messages: [{ role: "user", content: prompt }],
     }, {
       headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
         'X-Title': 'Feedback Analyzer'
       }
@@ -342,6 +346,8 @@ Respond only in JSON format:
 
 const PORT = 5000;
 app.listen(PORT, () => {
+  if (!process.env.OPENROUTER_API_KEY) {
+    console.error("❌ OPENROUTER_API_KEY is missing — check .env file or Render environment settings");
+  }
   console.log(`✅ Server running at http://localhost:${PORT}`);
 });
-
