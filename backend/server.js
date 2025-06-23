@@ -7,9 +7,14 @@ const cors = require('cors');
 const multer = require('multer');
 const pdfParse = require('pdf-parse');
 require('dotenv').config();
+console.log("🔐 Loaded API Key:", process.env.OPENROUTER_API_KEY); 
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5173', 'https://chatgpt-zeta-hazel.vercel.app'],
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
 app.use(express.json());
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -27,7 +32,7 @@ app.post('/api/chat', async (req, res) => {
       headers: {
         'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'http://localhost:5173',
+        'HTTP-Referer': 'https://chatgpt-zeta-hazel.vercel.app',
         'X-Title': 'My AI App'
       }
     });
@@ -144,7 +149,7 @@ Respond only in JSON format:
       headers: {
         Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'http://localhost:5173',
+        'HTTP-Referer': 'https://chatgpt-zeta-hazel.vercel.app',
         'X-Title': 'Feedback Analyzer'
       },
     });
