@@ -1,0 +1,101 @@
+/* FeedBackAnalysis.css */
+
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f7f7f8;
+  margin: 0;
+  padding: 0;
+}
+
+.chat-ui {
+  max-width: 720px;
+  margin: 40px auto;
+  padding: 32px;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+.chat-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.chat-header h1 {
+  font-size: 26px;
+  margin: 0 0 10px;
+}
+
+.chat-header p {
+  font-size: 14px;
+  color: #555;
+}
+
+.chat-form .input-group {
+  margin-bottom: 20px;
+}
+
+.chat-form label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+
+.chat-form input[type="text"],
+.chat-form input[type="file"],
+.chat-form textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.chat-form textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.submit-btn {
+  background-color: #000;
+  color: #fff;
+  padding: 12px 20px;
+  font-size: 15px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.submit-btn:disabled {
+  background-color: #999;
+  cursor: not-allowed;
+}
+
+.chat-response {
+  margin-top: 30px;
+  background-color: #f2f2f2;
+  padding: 20px;
+  border-radius: 10px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.chat-response h4 {
+  margin-bottom: 16px;
+}
+
+.chat-response ul {
+  padding-left: 20px;
+}
+
+.chat-response li {
+  margin-bottom: 8px;
+}
+
+.error-text {
+  color: red;
+  font-weight: bold;
+}
