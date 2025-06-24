@@ -181,8 +181,6 @@
 
 
 
-
-
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -190,10 +188,17 @@ const multer = require('multer');
 const pdfParse = require('pdf-parse');
 require('dotenv').config();
 
-// Confirm API key loaded
-console.log("🔐 Loaded API Key:", process.env.OPENROUTER_API_KEY?.slice(0, 10) + '...');
-
 const app = express();
+const upload = multer({ storage: multer.memoryStorage() });
+
+// ✅ Load and trim API key
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY?.trim();
+if (!OPENROUTER_API_KEY) {
+  console.error("❌ OPENROUTER_API_KEY is missing or invalid.");
+}
+console.log("🔐 Loaded API Key:", OPENROUTER_API_KEY.slice(0, 10) + '...');
+
+// Middleware
 app.use(cors({
   origin: ['http://localhost:5173', 'https://chatgpt-zeta-hazel.vercel.app'],
   methods: ['GET', 'POST'],
@@ -201,22 +206,19 @@ app.use(cors({
 }));
 app.use(express.json());
 
-const upload = multer({ storage: multer.memoryStorage() });
-
-// General chat
+// /api/chat endpoint
 app.post('/api/chat', async (req, res) => {
   const { message } = req.body;
-  if (!message || message.trim() === "") return res.status(400).json({ error: 'Message is required' });
+  if (!message?.trim()) return res.status(400).json({ error: 'Message is required' });
 
   try {
     console.log("📨 Sending /api/chat request to OpenRouter...");
-
     const response = await axios.post('https://openrouter.ai/api/v1/chat/completions', {
       model: 'mistralai/mistral-7b-instruct',
       messages: [{ role: "user", content: message }],
     }, {
       headers: {
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
         'X-Title': 'My Ai App'
       }
@@ -263,6 +265,7 @@ app.post('/api/analyze-sheet', async (req, res) => {
   try {
     const publicId = sheetUrl.match(/\/d\/(.*?)\//)?.[1];
     if (!publicId) throw new Error("Invalid Google Sheet link");
+
     const csvUrl = `https://docs.google.com/spreadsheets/d/${publicId}/export?format=csv`;
     const response = await axios.get(csvUrl);
     const lines = response.data.split('\n');
@@ -279,14 +282,13 @@ app.post('/api/analyze-sheet', async (req, res) => {
 
     const result = await analyzeTextWithAI(feedbackText);
     res.json(result);
-
   } catch (err) {
     console.error("❌ Sheet Analysis Failed:", err.message);
     res.status(500).json({ error: 'Failed to analyze sheet feedback' });
   }
 });
 
-// Analyze raw paragraph
+// Analyze Paragraph
 app.post('/api/analyze-text', async (req, res) => {
   const { text } = req.body;
   if (!text) return res.status(400).json({ error: 'Text is required' });
@@ -300,7 +302,7 @@ app.post('/api/analyze-text', async (req, res) => {
   }
 });
 
-// Core logic: AI prompt
+// Core AI Prompt Logic
 async function analyzeTextWithAI(inputText) {
   const prompt = `
 You are an assistant for a premium bridal rental brand.
@@ -331,18 +333,18 @@ Respond only in JSON format:
   try {
     console.log("📨 Sending analyzeTextWithAI() request to OpenRouter...");
 
-    const aiResponse = await axios.post('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await axios.post('https://openrouter.ai/api/v1/chat/completions', {
       model: 'mistralai/mistral-7b-instruct',
       messages: [{ role: "user", content: prompt }],
     }, {
       headers: {
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
         'X-Title': 'Feedback Analyzer'
       }
     });
 
-    const raw = aiResponse.data.choices[0].message.content;
+    const raw = response.data.choices[0].message.content;
     try {
       return JSON.parse(raw);
     } catch (err) {
@@ -355,13 +357,12 @@ Respond only in JSON format:
   }
 }
 
+// Start server
 const PORT = 5000;
 app.listen(PORT, () => {
-  if (!process.env.OPENROUTER_API_KEY) {
-    console.error("❌ OPENROUTER_API_KEY is missing — check .env file or Render environment settings");
-  }
   console.log(`✅ Server running at http://localhost:${PORT}`);
 });
+
 
 
 
