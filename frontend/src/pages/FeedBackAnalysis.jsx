@@ -115,16 +115,13 @@
 
 // export default FeedBackAnalysis;
 
-
-
-
 import React, { useState } from 'react';
-import './FeedBackAnalysis.css';
+import { Button, Container, Form, Card } from 'react-bootstrap';
+import botImage from '../assets/ai-chat.png'; // Make sure to replace with your correct path
 
 const FeedBackAnalysis = () => {
   const [file, setFile] = useState(null);
-  const [googleLink, setGoogleLink] = useState('');
-  const [paragraph, setParagraph] = useState('');
+  const [combinedInput, setCombinedInput] = useState('');
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -146,24 +143,24 @@ const FeedBackAnalysis = () => {
         formData.append("file", file);
         const isCSV = file.name.endsWith(".csv");
 
-        res = await fetch(`https://chatgpt-1-ovts.onrender.com/api/${isCSV ? 'analyze-csv' : 'analyze-pdf'}`, {
+        res = await fetch(`http://localhost:5000/api/${isCSV ? 'analyze-csv' : 'analyze-pdf'}`, {
           method: "POST",
           body: formData,
         });
-      } else if (googleLink.trim()) {
-        res = await fetch("https://chatgpt-1-ovts.onrender.com/api/analyze-sheet", {
+      } else if (combinedInput.includes('docs.google.com')) {
+        res = await fetch("http://localhost:5000/api/analyze-sheet", {
           method: "POST",
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sheetUrl: googleLink })
+          body: JSON.stringify({ sheetUrl: combinedInput.trim() })
         });
-      } else if (paragraph.trim()) {
-        res = await fetch("https://chatgpt-1-ovts.onrender.com/api/analyze-text", {
+      } else if (combinedInput.trim()) {
+        res = await fetch("http://localhost:5000/api/analyze-text", {
           method: "POST",
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: paragraph })
+          body: JSON.stringify({ text: combinedInput.trim() })
         });
       } else {
-        alert("Please provide a file, Google Sheet link, or paragraph.");
+        alert("Please upload a file or enter some text/link.");
         setLoading(false);
         return;
       }
@@ -179,65 +176,116 @@ const FeedBackAnalysis = () => {
   };
 
   return (
-    <div className="chat-ui">
-      <div className="chat-header">
-        <h1>Talk Feedback to Me</h1>
-        <p>Choose one option to start analyzing customer feedback</p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="chat-form">
-        <div className="input-group">
-          <label>Upload PDF or CSV:</label>
-          <input type="file" accept=".pdf,.csv" onChange={handleFileChange} />
+    <div
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(to bottom right, #000000, #1c1c1c)',
+        color: 'white',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '2rem',
+      }}
+    >
+      <Container style={{ maxWidth: '700px' }}>
+        {/* Header */}
+        <div className="mx-auto mb-4 px-3 py-1 rounded-pill text-dark fw-bold"
+          style={{ backgroundColor: '#bfff00', width: 'fit-content' }}>
+          Chatie
         </div>
 
-        <div className="input-group">
-          <label>Or Google Sheet Link:</label>
-          <input
-            type="text"
-            placeholder="Paste public Google Sheet link..."
-            value={googleLink}
-            onChange={(e) => setGoogleLink(e.target.value)}
-          />
-        </div>
+        {/* Bot Image */}
+      <div className="text-center">
+  <img 
+    src={botImage} 
+    alt="AI Bot" 
+    style={{ width: '400px', marginBottom: '20px' }} 
+  />
+  <h2 className="mb-4">How may I help you today!</h2>
+</div>
 
-        <div className="input-group">
-          <label>Or Paste Paragraph:</label>
-          <textarea
-            placeholder="Type or paste customer feedback here..."
-            value={paragraph}
-            onChange={(e) => setParagraph(e.target.value)}
-            rows={5}
-          />
-        </div>
 
-        <button type="submit" className="submit-btn" disabled={loading}>
-          {loading ? "Analyzing..." : "Submit for Analysis"}
-        </button>
-      </form>
+        <Form onSubmit={handleSubmit}>
+          {/* Combined Input + File Upload Bar */}
+          <Form.Group className="mb-3">
+            <div
+              className="d-flex align-items-center"
+              style={{
+                backgroundColor: 'white',
+                borderRadius: '30px',
+                padding: '6px 15px',
+                border: 'none',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+              }}
+            >
+              <Form.Control
+                as="textarea"
+                rows={1}
+                placeholder="Ask a question..."
+                value={combinedInput}
+                onChange={(e) => setCombinedInput(e.target.value)}
+                style={{
+                  border: 'none',
+                  boxShadow: 'none',
+                  resize: 'none',
+                  overflow: 'hidden',
+                  fontSize: '16px',
+                  height: '40px',
+                  flex: 1,
+                  backgroundColor: 'transparent',
+                }}
+              />
 
-      {result && (
-        <div className="chat-response">
-          <h4>🧠 AI Result:</h4>
-          {result.error ? (
-            <p className="error-text">{result.error}</p>
-          ) : (
-            <>
-              <p><strong>🔴 Issues:</strong> {result.mainIssues?.join(", ") || "None"}</p>
-              <p><strong>⚠️ Root Causes:</strong> {result.rootCauses?.join(", ") || "None"}</p>
-              <p><strong>✅ Action Plan:</strong></p>
-              <ul>
-                {result.actionPlan?.length ? result.actionPlan.map((step, index) => (
-                  <li key={index}>{step}</li>
-                )) : <li>No suggestions available</li>}
-              </ul>
-            </>
-          )}
-        </div>
-      )}
+              <label htmlFor="fileUpload" style={{ cursor: 'pointer', marginLeft: '10px' }} title="Upload PDF/CSV">
+                ➕
+              </label>
+              <input
+                type="file"
+                id="fileUpload"
+                accept=".pdf,.csv"
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+              />
+            </div>
+            {file && <small className="text-muted mt-1 d-block">{file.name}</small>}
+          </Form.Group>
+
+          {/* Submit Button */}
+          <Button
+            type="submit"
+            variant="light"
+            className="w-100 rounded-pill"
+            disabled={loading}
+          >
+            {loading ? 'Analyzing...' : 'Chatie'}
+          </Button>
+        </Form>
+
+        {/* AI Result Display */}
+        {result && (
+          <Card className="mt-4 bg-dark text-white border-0 shadow">
+            <Card.Body>
+              <h5>🧠 AI Result</h5>
+              {result.error ? (
+                <p className="text-danger">{result.error}</p>
+              ) : (
+                <>
+                  <p><strong>🔴 Issues:</strong> {result.mainIssues?.join(", ") || "None"}</p>
+                  <p><strong>⚠️ Root Causes:</strong> {result.rootCauses?.join(", ") || "None"}</p>
+                  <p><strong>✅ Action Plan:</strong></p>
+                  <ul>
+                    {result.actionPlan?.length
+                      ? result.actionPlan.map((step, i) => <li key={i}>{step}</li>)
+                      : <li>No suggestions available</li>}
+                  </ul>
+                </>
+              )}
+            </Card.Body>
+          </Card>
+        )}
+      </Container>
     </div>
   );
 };
 
 export default FeedBackAnalysis;
-

@@ -9,8 +9,8 @@ function App() {
     <Router>
       <Routes>
       
-        <Route path="/chat" element={<Chat />} />
-        <Route path="/" element={<FeedBackAnalysis />} />
+        <Route path="/" element={<Chat />} />
+        <Route path="/chat" element={<FeedBackAnalysis />} />
    
       </Routes>
     </Router>

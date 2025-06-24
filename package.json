@@ -1,7 +1,9 @@
 {
   "dependencies": {
+    "bootstrap": "^5.3.7",
     "multer": "^2.0.1",
     "pdf-parse": "^1.1.1",
+    "react-bootstrap": "^2.10.10",
     "react-router-dom": "^7.6.2"
   }
 }
