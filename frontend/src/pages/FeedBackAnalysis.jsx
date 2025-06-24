@@ -143,18 +143,18 @@ const FeedBackAnalysis = () => {
         formData.append("file", file);
         const isCSV = file.name.endsWith(".csv");
 
-        res = await fetch(`http://localhost:5000/api/${isCSV ? 'analyze-csv' : 'analyze-pdf'}`, {
+        res = await fetch(`https://chatgpt-1-ovts.onrender.com/api/${isCSV ? 'analyze-csv' : 'analyze-pdf'}`, {
           method: "POST",
           body: formData,
         });
       } else if (combinedInput.includes('docs.google.com')) {
-        res = await fetch("http://localhost:5000/api/analyze-sheet", {
+        res = await fetch("https://chatgpt-1-ovts.onrender.com/api/analyze-sheet", {
           method: "POST",
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sheetUrl: combinedInput.trim() })
         });
       } else if (combinedInput.trim()) {
-        res = await fetch("http://localhost:5000/api/analyze-text", {
+        res = await fetch("https://chatgpt-1-ovts.onrender.com/api/analyze-text", {
           method: "POST",
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: combinedInput.trim() })
