@@ -8,6 +8,7 @@ const FeedBackAnalysis = () => {
   const [paragraph, setParagraph] = useState('');
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
@@ -27,18 +28,18 @@ const FeedBackAnalysis = () => {
         formData.append("file", file);
         const isCSV = file.name.endsWith(".csv");
 
-        res = await fetch(`https://chatgpt-1-ovts.onrender.com/api/${isCSV ? 'analyze-csv' : 'analyze-pdf'}`, {
+        res = await fetch(`http://localhost:5000/api/${isCSV ? 'analyze-csv' : 'analyze-pdf'}`, {
           method: "POST",
           body: formData,
         });
       } else if (googleLink.trim()) {
-        res = await fetch("https://chatgpt-1-ovts.onrender.com/api/analyze-sheet", {
+        res = await fetch("http://localhost:5000/api/analyze-sheet", {
           method: "POST",
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sheetUrl: googleLink })
         });
       } else if (paragraph.trim()) {
-        res = await fetch("https://chatgpt-1-ovts.onrender.com/api/analyze-text", {
+        res = await fetch("http://localhost:5000/api/analyze-text", {
           method: "POST",
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: paragraph })
@@ -49,11 +50,21 @@ const FeedBackAnalysis = () => {
         return;
       }
 
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || `HTTP ${res.status}: ${res.statusText}`);
+      }
+      
       const data = await res.json();
+      console.log("📊 Analysis result:", data);
       setResult(data);
     } catch (err) {
       console.error("❌ Error analyzing:", err);
-      setResult({ error: "Something went wrong during analysis." });
+      setResult({ 
+        error: err.message || "Something went wrong during analysis. Please check your input and try again.",
+        canRetry: true
+      });
+      setRetryCount(prev => prev + 1);
     } finally {
       setLoading(false);
     }
@@ -95,13 +106,45 @@ const FeedBackAnalysis = () => {
         <button type="submit" className="submit-btn" disabled={loading}>
           {loading ? "Analyzing..." : "Submit for Analysis"}
         </button>
+        
+        {loading && (
+          <p style={{ color: '#666', fontSize: '14px', marginTop: '10px' }}>
+            This may take a few moments. Please wait...
+          </p>
+        )}
       </form>
 
       {result && (
         <div className="chat-response">
           <h4>🧠 AI Result:</h4>
           {result.error ? (
-            <p className="error-text">{result.error}</p>
+            <div>
+              <p className="error-text">{result.error}</p>
+              {result.canRetry && retryCount < 3 && (
+                <button 
+                  onClick={() => {
+                    setResult(null);
+                    handleSubmit({ preventDefault: () => {} });
+                  }}
+                  style={{
+                    marginTop: '10px',
+                    padding: '8px 16px',
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  🔄 Retry Analysis
+                </button>
+              )}
+              {retryCount >= 3 && (
+                <p style={{ color: '#666', fontSize: '12px', marginTop: '10px' }}>
+                  Multiple attempts failed. Please check your input or try again later.
+                </p>
+              )}
+            </div>
           ) : (
             <>
               <p><strong>🔴 Issues:</strong> {result.mainIssues?.join(", ") || "None"}</p>

@@ -302,8 +302,9 @@ app.post('/api/analyze-text', async (req, res) => {
   }
 });
 
-// Core AI Prompt Logic
-async function analyzeTextWithAI(inputText) {
+// Core AI Prompt Logic with retry mechanism
+async function analyzeTextWithAI(inputText, retryCount = 0) {
+  const maxRetries = 3;
   const prompt = `
 You are an assistant for a premium bridal rental brand.
 
@@ -322,39 +323,96 @@ If the feedback is mostly positive or generic, say:
 - "No major issues detected. Most feedback appears positive or neutral."
 - Also give 2 suggestions to improve the store experience
 
-Respond only in JSON format:
+IMPORTANT: You MUST respond with ONLY valid JSON. No additional text, explanations, or formatting. The response must start with { and end with }.
+
+Respond in this EXACT JSON format:
 {
-  "mainIssues": [...],
-  "rootCauses": [...],
-  "actionPlan": [...]
+  "mainIssues": ["issue1", "issue2"],
+  "rootCauses": ["cause1", "cause2"],
+  "actionPlan": ["action1", "action2", "action3"]
 }
 `;
 
   try {
-    console.log("📨 Sending analyzeTextWithAI() request to OpenRouter...");
-
+    // Try primary model first, fallback to alternative if needed
+    const models = ['mistralai/mistral-7b-instruct', 'openai/gpt-3.5-turbo', 'anthropic/claude-3-haiku'];
+    const selectedModel = models[retryCount] || models[0];
+    
+    console.log(`📨 Sending analyzeTextWithAI() request to OpenRouter using ${selectedModel}... (attempt ${retryCount + 1}/${maxRetries + 1})`);
+    
     const response = await axios.post('https://openrouter.ai/api/v1/chat/completions', {
-      model: 'mistralai/mistral-7b-instruct',
+      model: selectedModel,
       messages: [{ role: "user", content: prompt }],
+      max_tokens: 1000,
+      temperature: 0.3
     }, {
       headers: {
         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
         'X-Title': 'Feedback Analyzer'
-      }
+      },
+      timeout: 30000 // 30 second timeout
     });
 
     const raw = response.data.choices[0].message.content;
+    console.log("🔍 Raw AI Response:", raw);
+    
+    // Handle empty response
+    if (!raw || raw.trim() === '') {
+      console.error("❌ AI returned empty response");
+      return { error: "AI service returned empty response. Please try again." };
+    }
+    
+    // Clean the response - remove any markdown formatting or extra text
+    let cleanedResponse = raw.trim();
+    
+    // Extract JSON from markdown code blocks if present
+    if (cleanedResponse.includes('```json')) {
+      const jsonMatch = cleanedResponse.match(/```json\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        cleanedResponse = jsonMatch[1].trim();
+      }
+    } else if (cleanedResponse.includes('```')) {
+      const jsonMatch = cleanedResponse.match(/```\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        cleanedResponse = jsonMatch[1].trim();
+      }
+    }
+    
+    // Find JSON object in the response
+    const jsonStart = cleanedResponse.indexOf('{');
+    const jsonEnd = cleanedResponse.lastIndexOf('}');
+    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+      cleanedResponse = cleanedResponse.substring(jsonStart, jsonEnd + 1);
+    }
+    
     try {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(cleanedResponse);
+      console.log("✅ Successfully parsed AI response:", parsed);
+      return parsed;
     } catch (err) {
-      console.error("⚠️ Raw AI Response:", raw);
+      console.error("❌ Failed to parse AI response as JSON");
+      console.error("📝 Cleaned response:", cleanedResponse);
+      console.error("🔧 Parse error:", err.message);
       return { error: "AI returned invalid format. Please refine the input or prompt." };
     }
-  } catch (error) {
-    console.error("❌ AI Request Failed:", error.response?.data || error.message);
-    return { error: 'Failed to connect to AI service.' };
-  }
+    } catch (error) {
+      console.error("❌ AI Request Failed:", error.response?.data || error.message);
+      
+      // Retry logic for network errors or empty responses
+      if (retryCount < maxRetries && (
+        error.code === 'ECONNRESET' || 
+        error.code === 'ETIMEDOUT' || 
+        error.message.includes('timeout') ||
+        !response?.data?.choices?.[0]?.message?.content
+      )) {
+        console.log(`🔄 Retrying request in 2 seconds... (${retryCount + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return analyzeTextWithAI(inputText, retryCount + 1);
+      }
+      
+      return { error: 'Failed to connect to AI service. Please try again.' };
+    }
 }
 
 // Start server
