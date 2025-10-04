@@ -6,6 +6,7 @@ const FeedBackAnalysis = () => {
   const [file, setFile] = useState(null);
   const [googleLink, setGoogleLink] = useState('https://docs.google.com/spreadsheets/d/1soJQ5sthae5LyYHlP0YdtGhpxLYnJMI-jU8W8Q21iIg/edit?gid=424789735#gid=424789735');
   const [paragraph, setParagraph] = useState('');
+  const [analysisPrompt, setAnalysisPrompt] = useState('');
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
@@ -25,13 +26,32 @@ const FeedBackAnalysis = () => {
       let url = '';
       let requestBody = null;
 
-      if (file) {
+      if (analysisPrompt.trim()) {
+        // PRIORITY: If user has a prompt, always use custom-analyze endpoint
+        url = "http://localhost:5000/api/custom-analyze";
+        
+        requestBody = { 
+          prompt: analysisPrompt.trim(),
+          googleSheetUrl: googleLink.trim() || null,
+          timestamp: Date.now() // Add timestamp to ensure fresh responses
+        };
+        
+        console.log(`📤 Sending custom prompt request to: ${url}`);
+        console.log(`📝 User prompt:`, analysisPrompt.trim());
+        console.log(`📊 Request body:`, requestBody);
+        console.log(`✅ Using CUSTOM-ANALYZE endpoint - Pure frontend prompting!`);
+        res = await fetch(url, {
+          method: "POST",
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody)
+        });
+      } else if (file) {
         const formData = new FormData();
         formData.append("file", file);
         const isCSV = file.name.endsWith(".csv");
         url = `http://localhost:5000/api/${isCSV ? 'analyze-csv' : 'analyze-pdf'}`;
         requestBody = formData;
-        
+
         console.log(`📤 Sending file to: ${url}`);
         res = await fetch(url, {
           method: "POST",
@@ -58,7 +78,7 @@ const FeedBackAnalysis = () => {
           body: JSON.stringify(requestBody)
         });
       } else {
-        alert("Please provide an IT Support file, Google Sheet link, or paste IT Support data.");
+        alert("Please provide an IT Support file, Google Sheet link, paste IT Support data, or enter an analysis prompt.");
         setLoading(false);
         return;
       }
@@ -81,19 +101,26 @@ const FeedBackAnalysis = () => {
       setResult(data);
     } catch (err) {
       console.error("❌ Error analyzing:", err);
-      
-      // Check if it's a network error
-      if (err.name === 'TypeError' && err.message.includes('fetch')) {
-        setResult({ 
-          error: "Network error: Unable to connect to server. Please check if your backend is running on http://localhost:5000",
-          canRetry: true
-        });
-      } else {
-        setResult({ 
-          error: err.message || "Something went wrong during IT Support analysis. Please check your data and try again.",
-          canRetry: true
-        });
-      }
+        
+        // Check for specific error types
+        let errorMessage = "Something went wrong during IT Support analysis.";
+        
+        if (err.name === 'TypeError' && err.message.includes('fetch')) {
+          errorMessage = "Network error: Unable to connect to server. Please check if your backend is running on http://localhost:5000";
+        } else if (err.message.includes('listener indicated an asynchronous response')) {
+          errorMessage = "Browser extension conflict detected. Please try disabling browser extensions or use incognito mode.";
+        } else if (err.message.includes('Failed to fetch')) {
+          errorMessage = "Connection failed. Please check your internet connection and ensure the backend server is running.";
+        } else if (err.message.includes('CORS')) {
+          errorMessage = "CORS error: Backend server may not be properly configured for cross-origin requests.";
+        } else {
+          errorMessage = err.message || errorMessage;
+        }
+        
+      setResult({ 
+          error: errorMessage,
+        canRetry: true
+      });
       setRetryCount(prev => prev + 1);
     } finally {
       setLoading(false);
@@ -105,43 +132,90 @@ const FeedBackAnalysis = () => {
       <div className="chat-header">
         <h1>IT Support Request Analyzer</h1>
         <p>Analyzes IT support requests with priority-based action plans and company system integration (HIGH/MEDIUM/LOW urgency)</p>
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
         <button
-          className="test-api-btn"
+            className="test-api-btn"
           onClick={async () => {
             try {
-              console.log("🧪 Testing API connection...");
-              const res = await fetch("http://localhost:5000/api/test-key", {
-                method: 'GET',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                timeout: 10000 // 10 second timeout
-              });
-              
-              if (!res.ok) {
-                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-              }
-              
+                console.log("🧪 Testing API connection...");
+                const res = await fetch("http://localhost:5000/api/test-key", {
+                  method: 'GET',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  timeout: 10000 // 10 second timeout
+                });
+                
+                if (!res.ok) {
+                  throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+                
               const data = await res.json();
-              console.log("📡 API test response:", data);
-              
+                console.log("📡 API test response:", data);
+                
               if (data.success) {
                 alert(`✅ API Connection Working!\nResponse: ${data.response}`);
               } else {
                 alert(`❌ API Error: ${data.error}`);
               }
             } catch (err) {
-              console.error("❌ API test failed:", err);
-              if (err.name === 'TypeError' && err.message.includes('fetch')) {
-                alert(`❌ Connection Failed: Unable to connect to server. Please ensure your backend is running on http://localhost:5000`);
-              } else {
-                alert(`❌ Connection Failed: ${err.message}`);
+                console.error("❌ API test failed:", err);
+                let errorMessage = "Connection Failed";
+                
+                if (err.name === 'TypeError' && err.message.includes('fetch')) {
+                  errorMessage = "Unable to connect to server. Please ensure your backend is running on http://localhost:5000";
+                } else if (err.message.includes('listener indicated an asynchronous response')) {
+                  errorMessage = "Browser extension conflict detected. Please try disabling browser extensions or use incognito mode.";
+                } else {
+                  errorMessage = err.message;
+                }
+                
+                alert(`❌ ${errorMessage}`);
               }
-            }
-          }}
+            }}
         >
           🧪 Test API Connection
         </button>
+          
+          <button
+            className="test-api-btn"
+            onClick={() => {
+              const troubleshooting = `
+🔧 Troubleshooting Guide:
+
+1. **Backend Server Check:**
+   - Ensure backend is running: cd backend && npm start
+   - Check console for "Server running on port 5000"
+
+2. **Browser Extension Conflicts:**
+   - Try incognito/private mode
+   - Disable browser extensions temporarily
+   - Common conflicting extensions: AdBlockers, VPN, Privacy tools
+
+3. **Network Issues:**
+   - Check if http://localhost:5000/api/test-key is accessible
+   - Try different browser (Chrome, Firefox, Edge)
+   - Check firewall/antivirus settings
+
+4. **Alternative URLs:**
+   - Try: http://127.0.0.1:5000
+   - Or use production: https://chatgpt-1-ovts.onrender.com
+
+5. **CORS Issues:**
+   - Backend should allow localhost:5173
+   - Check browser console for CORS errors
+
+6. **Quick Fixes:**
+   - Refresh the page (Ctrl+F5)
+   - Clear browser cache
+   - Restart backend server
+              `;
+              alert(troubleshooting);
+            }}
+          >
+            🔧 Troubleshooting
+          </button>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="chat-form">
@@ -199,13 +273,127 @@ const FeedBackAnalysis = () => {
           />
         </div>
 
+        <div className="input-group">
+          <label>Your Prompt (ChatGPT Style):</label>
+          <textarea
+            placeholder="Enter your prompt here... 
+
+Example prompts:
+• 'Create a 1-week sprint plan for our IT team focusing on high-priority revenue-impacting issues'
+• 'Analyze all pending RootFin issues and create a priority matrix with team assignments'
+• 'Generate a risk assessment for current IT support backlog and suggest mitigation strategies'
+• 'Create a detailed team assignment plan for this week's tasks with effort estimation'
+• 'Analyze LMS issues and provide improvement recommendations for our 20 stores'
+• 'Generate a comprehensive status report for all active IT support requests'
+• 'Give me a simple list of all pending requests'
+• 'Create a table with priority levels and team assignments'
+• 'Focus only on RootFin issues and provide technical solutions'
+
+The system will automatically fetch your Google Sheet data and analyze it based on this prompt."
+            value={analysisPrompt}
+            onChange={(e) => setAnalysisPrompt(e.target.value)}
+            rows={6}
+          />
+        </div>
+
+        <div style={{ marginTop: '10px', padding: '10px', background: '#e8f5e8', borderRadius: '6px', border: '1px solid #28a745' }}>
+          <strong>📝 Current Prompt Preview:</strong>
+          <div style={{ marginTop: '5px', fontSize: '12px', color: '#155724' }}>
+            {analysisPrompt.trim() || 'No prompt entered yet...'}
+          </div>
+          {analysisPrompt.trim() && (
+            <div style={{ marginTop: '8px', padding: '5px', background: '#d4edda', borderRadius: '4px', fontSize: '11px', color: '#155724', fontWeight: 'bold' }}>
+              ✅ Pure Frontend Prompting Mode - AI will respond exactly to your prompt!
+            </div>
+          )}
+        </div>
+        
+        <div style={{ marginTop: '10px', padding: '10px', background: '#fff3cd', borderRadius: '6px', border: '1px solid #ffc107' }}>
+          <strong>🧪 Quick Test Prompts:</strong>
+          <div style={{ marginTop: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button 
+              type="button"
+              onClick={() => setAnalysisPrompt("Create a simple list of all pending IT support requests")}
+              style={{ padding: '4px 8px', fontSize: '11px', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              Simple List
+            </button>
+            <button 
+              type="button"
+              onClick={() => setAnalysisPrompt("Generate a detailed sprint plan with team assignments for next week")}
+              style={{ padding: '4px 8px', fontSize: '11px', background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              Sprint Plan
+            </button>
+            <button 
+              type="button"
+              onClick={() => setAnalysisPrompt("Analyze RootFin issues only and suggest improvements")}
+              style={{ padding: '4px 8px', fontSize: '11px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              RootFin Focus
+            </button>
+            <button 
+              type="button"
+              onClick={() => setAnalysisPrompt("Create a priority matrix with HIGH/MEDIUM/LOW classifications")}
+              style={{ padding: '4px 8px', fontSize: '11px', background: '#6f42c1', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              Priority Matrix
+            </button>
+            <button 
+              type="button"
+              onClick={() => setAnalysisPrompt("Give me a summary of all LMS issues")}
+              style={{ padding: '4px 8px', fontSize: '11px', background: '#fd7e14', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              LMS Summary
+            </button>
+            <button 
+              type="button"
+              onClick={() => setAnalysisPrompt("Create a table with all requests, their status, and assigned team member")}
+              style={{ padding: '4px 8px', fontSize: '11px', background: '#20c997', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              Status Table
+            </button>
+            <button 
+              type="button"
+              onClick={() => setAnalysisPrompt("Just give me a simple hello message to test if frontend prompting works")}
+              style={{ padding: '4px 8px', fontSize: '11px', background: '#ffc107', color: 'black', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              Test Frontend
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
         <button type="submit" className="submit-btn" disabled={loading}>
-          {loading ? "Analyzing IT Requests..." : "Generate IT Support Analysis"}
+            {loading ? (analysisPrompt.trim() ? "Analyzing with Custom Prompt..." : "Analyzing IT Requests...") : "Generate IT Support Analysis"}
         </button>
+          
+          {result && (
+            <button 
+              type="button" 
+              className="clear-btn" 
+              onClick={() => {
+                setResult(null);
+                setRetryCount(0);
+              }}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '16px'
+              }}
+            >
+              Clear Results
+            </button>
+          )}
+        </div>
         
         {loading && (
           <p className="loading-text">
-            🔍 Analyzing IT support requests, system categorization, priority assessment, and generating action plans (HIGH/MEDIUM/LOW urgency)...
+            🔍 {analysisPrompt.trim() ? 'Processing your prompt and analyzing data...' : 'Analyzing IT support requests, system categorization, priority assessment, and generating action plans (HIGH/MEDIUM/LOW urgency)...'}
           </p>
         )}
       </form>
@@ -213,6 +401,33 @@ const FeedBackAnalysis = () => {
       {result && (
         <div className="chat-response">
           <h4>📊 IT Support Request Analysis Report:</h4>
+          {analysisPrompt.trim() && (
+            <div style={{ background: '#e3f2fd', padding: '10px', borderRadius: '6px', marginBottom: '15px', fontSize: '14px' }}>
+              <strong>🎯 Your Prompt Used:</strong>
+              <div style={{ marginTop: '5px' }}>
+                {analysisPrompt.trim()}
+              </div>
+              
+              <details style={{ marginTop: '10px' }}>
+                <summary style={{ cursor: 'pointer', color: '#1976d2', fontWeight: 'bold' }}>
+                  🔍 Debug: Show Full Prompt Sent to AI
+                </summary>
+                <div style={{ 
+                  marginTop: '10px', 
+                  padding: '10px', 
+                  background: '#f5f5f5', 
+                  borderRadius: '4px', 
+                  fontSize: '12px',
+                  fontFamily: 'monospace',
+                  whiteSpace: 'pre-wrap',
+                  maxHeight: '200px',
+                  overflow: 'auto'
+                }}>
+                  {`Full Prompt Sent to AI:\n\n${analysisPrompt.trim()}`}
+                </div>
+              </details>
+            </div>
+          )}
           {result.error ? (
             <div>
               <p className="error-text">{result.error}</p>
@@ -299,7 +514,7 @@ const FeedBackAnalysis = () => {
                           {tasks.map((task, index) => (
                             <li key={index} style={{ fontSize: '13px', marginBottom: '5px' }}>{task}</li>
                           ))}
-                        </ul>
+              </ul>
                       </div>
                     ))}
                   </div>
@@ -323,12 +538,12 @@ const FeedBackAnalysis = () => {
                       else if (isTester) borderColor = '#fd7e14'; // orange for tester
                       else if (isUIUX) borderColor = '#6f42c1'; // purple for UI/UX
                       else if (isMarketing) borderColor = '#198754'; // green for marketing
-                      
-                      return (
+                  
+                  return (
                         <li key={index} style={{ borderLeftColor: borderColor, fontWeight: 'bold' }}>
                           {assignment}
-                        </li>
-                      );
+                    </li>
+                  );
                     })}
                   </ul>
                 </div>
@@ -356,15 +571,43 @@ const FeedBackAnalysis = () => {
                 </div>
               )}
 
+              {/* Custom Analysis Results */}
+              {result.analysis && (
+                <div className="response-section">
+                  <p>🤖 Custom Analysis Results:</p>
+                  <div style={{ 
+                    background: '#ffffff', 
+                    padding: '20px', 
+                    borderRadius: '8px', 
+                    border: '1px solid #dee2e6',
+                    whiteSpace: 'pre-wrap',
+                    lineHeight: '1.6',
+                    fontSize: '14px'
+                  }}>
+                    {result.analysis}
+                  </div>
+                  {result.prompt && (
+                    <div style={{ marginTop: '15px', fontSize: '12px', color: '#6c757d' }}>
+                      <strong>Your Prompt:</strong> {result.prompt}
+                    </div>
+                  )}
+                  {result.hasSheetData && (
+                    <div style={{ marginTop: '10px', fontSize: '12px', color: '#28a745' }}>
+                      ✅ Analysis based on Google Sheet data
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Fallback for old format */}
-              {!result.sprintOverview && result.mainIssues && (
+              {!result.sprintOverview && !result.analysis && result.mainIssues && (
                 <div className="response-section">
                   <p>🚨 Critical IT Issues Analysis:</p>
                   <ul>
                     {result.mainIssues.map((issue, index) => (
                       <li key={index}>{issue}</li>
                     ))}
-                  </ul>
+              </ul>
                 </div>
               )}
             </>

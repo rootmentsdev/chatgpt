@@ -43,6 +43,80 @@ app.get('/api/test-key', (req, res) => {
   });
 });
 
+// Custom analysis endpoint - ChatGPT style prompting
+app.post('/api/custom-analyze', async (req, res) => {
+  const { prompt, googleSheetUrl, timestamp } = req.body;
+  
+  if (!prompt?.trim()) {
+    return res.status(400).json({ error: 'Custom prompt is required' });
+  }
+
+  try {
+    console.log("📨 Custom analysis request:", { 
+      prompt: prompt.substring(0, 100) + "...", 
+      hasSheetUrl: !!googleSheetUrl,
+      timestamp: timestamp || 'no timestamp',
+      fullPromptLength: prompt.length
+    });
+    
+    let sheetData = '';
+    
+    // If Google Sheet URL is provided, fetch the data
+    if (googleSheetUrl?.trim()) {
+      try {
+        const sheetId = googleSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1];
+        if (sheetId) {
+          const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
+          const sheetResponse = await axios.get(csvUrl);
+          sheetData = sheetResponse.data;
+          console.log("📊 Google Sheet data fetched, rows:", sheetData.split('\n').length);
+        }
+      } catch (sheetError) {
+        console.log("⚠️ Could not fetch Google Sheet data:", sheetError.message);
+      }
+    }
+
+    // Use only the user's prompt - no backend prompting
+    const fullPrompt = `${sheetData ? `Here is the data to analyze:\n\n${sheetData}\n\n` : ''}${prompt}`;
+
+    // Send to AI with no system context - pure user prompt
+    const response = await axios.post('https://openrouter.ai/api/v1/chat/completions', {
+      model: 'anthropic/claude-3-haiku',
+      messages: [
+        { role: "user", content: fullPrompt }
+      ],
+      max_tokens: 4000,
+      temperature: 0.7 // Higher temperature for more varied responses
+    }, {
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'X-Title': 'Custom Analysis'
+      },
+      timeout: 60000
+    });
+
+    const analysis = response.data.choices[0].message.content;
+    console.log("📊 Custom analysis completed");
+    
+    // Return the analysis in a structured format
+    res.json({
+      success: true,
+      analysis: analysis,
+      prompt: prompt,
+      hasSheetData: !!sheetData,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error("❌ Custom Analysis Failed:", error.response?.data || error.message);
+    res.status(500).json({ 
+      error: 'Custom analysis failed. Please try again.',
+      details: error.message 
+    });
+  }
+});
+
 // /api/chat endpoint
 app.post('/api/chat', async (req, res) => {
   const { message } = req.body;
