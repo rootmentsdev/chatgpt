@@ -32,6 +32,17 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Test endpoint for debugging
+app.get('/api/test-key', (req, res) => {
+  console.log("🧪 Test endpoint called");
+  res.json({ 
+    success: true, 
+    response: "Backend is running properly",
+    timestamp: new Date().toISOString(),
+    apiKeyLoaded: !!OPENROUTER_API_KEY
+  });
+});
+
 // /api/chat endpoint
 app.post('/api/chat', async (req, res) => {
   const { message } = req.body;
@@ -387,35 +398,164 @@ function fixTruncatedJSON(jsonString) {
   }
 }
 
-// Core AI Prompt Logic with retry mechanism for DSR Analysis
+// Core AI Prompt Logic with retry mechanism for IT Support Analysis
 async function analyzeTextWithAI(inputText, retryCount = 0) {
   const maxRetries = 3;
-  const prompt = `Analyze DSR data using 80/20 Rule with cluster and role focus:
+  const prompt = `You are an AI assistant specialized in analyzing IT support requests for Rootments Enterprises LLP. When processing IT support requests, focus on these CRITICAL COLUMNS:
 
+## Company Context: Rootments Enterprises LLP
+
+**About Rootments:**
+Rootments Enterprises LLP is a Kerala-based retail + tech group operating two leading brands:
+- **SuitorGuy** – Men's suits, tuxedos, Indo-western, shoes, shirts
+- **Zorucci** – Bridal gowns, jewellery, accessories, and party wear
+
+**Operations:**
+- 20 stores across Kerala (North & South clusters)
+- Expansion plans: Tamil Nadu and Jewellery vertical
+- In-house tech systems for operations, finance, training, and dashboards
+
+**Branches (19 Stores):**
+- **SuitorGuy (Men's Rentals):** Chavakkad, Palakkad, Thrissur, Edappally, Perumbavur, Kottayam, Trivandrum, MG Road Kochi (upcoming)
+- **Zorucci (Bridal & Jewellery):** Edappally, Perumbavur, Thrissur, Kottayam, Trivandrum, Palakkad, Chavakkad
+- **Additional/Cluster Outlets:** SuitorGuy South/North Cluster, Zorucci South/North Cluster
+
+**Technology & Internal Sites:**
+- **💰 RootFin** – Finance Software (MongoDB + Express + React, hosted on Render/Vercel/MongoDB Atlas)
+- **🎓 LMS** – Training Platform (Node.js + MongoDB + React, hosted on Render/Vercel)
+- **🖥 Other Tools:** Billing Software, Ziy.ai (AI feedback analyzer), TYM SaaS (WhatsApp ordering), rootments.live
+- **🌐 Websites:** suitorguy.com (live), zorucci.com (ready, hosting pending)
+
+**IT Team Structure:**
+- **Team Lead** – Overall project coordination and technical decisions
+- **MERN Developer** – Backend development, database management, API development
+- **Software Tester** – Quality assurance, bug testing, system validation
+- **UI/UX Designer** – Frontend design, user interface, user experience
+- **Marketing Analyst** – SEO optimization, website performance, digital marketing integration
+
+**IMPORTANT: Analyze ALL IT support requests mentioned in the data, not just one request.**
+
+**Analyze the IT support data and provide a JSON response with the following structure:**
+{
+  "sprintOverview": {
+    "sprintDuration": "1 Week Sprint",
+    "totalActiveRequests": "[number]",
+    "teamCapacity": "5 members (Team Lead, MERN Developer, Software Tester, UI/UX Designer, Marketing Analyst)",
+    "sprintGoal": "Complete high-priority IT requests and system improvements"
+  },
+  "sprintBacklog": [
+    {
+      "requestId": "[timestamp]",
+      "requester": "[Name] - [Department]",
+      "priority": "HIGH/MEDIUM/LOW",
+      "system": "[RootFin/LMS/Website/Billing/Other]",
+      "issue": "[Brief description]",
+      "estimatedEffort": "[X hours/days]",
+      "assignedTo": "[Team Member]",
+      "sprintDay": "[Day 1-5]",
+      "businessImpact": "[Revenue/Operations/Customer Impact]"
+    }
+  ],
+  "sprintPlanning": {
+    "day1": ["Task 1", "Task 2"],
+    "day2": ["Task 3", "Task 4"],
+    "day3": ["Task 5", "Task 6"],
+    "day4": ["Task 7", "Task 8"],
+    "day5": ["Testing", "Deployment", "Review"]
+  },
+  "teamAssignment": [
+    "Assign to [Team Member]: [Specific task with duration]",
+    "Assign to [Team Member]: [Specific task with duration]",
+    "Assign to [Team Member]: [Specific task with duration]"
+  ],
+  "riskAssessment": [
+    "Risk 1: [Description] - Mitigation: [Action]",
+    "Risk 2: [Description] - Mitigation: [Action]"
+  ],
+  "successMetrics": [
+    "Metric 1: [Description]",
+    "Metric 2: [Description]"
+  ]
+}
+
+**Focus on:**
+1. System categorization (RootFin, LMS, Billing, Website, Store Operations)
+2. Priority assessment (High/Medium/Low with business context)
+3. Department impact analysis (Operations, Finance, HR, Management, Marketing, Sales)
+4. Technical assessment with company-specific tech stack
+5. Business value and operational efficiency gains
+6. Multi-store and multi-brand considerations
+7. Team assignment based on issue type and required skills
+
+**Data to analyze:**
 ${inputText}
 
-CLUSTERS:
-NORTH: EDAPPAL, KOTTAKAL, PMNA, MANJERY, CALICUT, VATAKARA, KALPETTA, KANNUR
-SOUTH: All other stores
+**Requirements:**
+1. EXCLUDE requests with Status = "Fixed" or "Fixed and live" - these are already completed
+2. Find ALL remaining IT support requests with High Priority OR critical system issues
+3. Apply priority-based analysis: Identify urgent requests affecting operations
+4. List AT LEAST 3-5 active requests from data above
 
-REQUIREMENTS:
-1. Find ALL stores with L2L Bills <50% OR L2L Qty <50% OR Conversion <50%
-2. Apply 80/20 Rule: Identify 20% stores causing 80% issues
-3. List AT LEAST 5-8 stores from data above
+For each request: Request ID, Department, Priority Level, System Affected, Issue Type, Business Impact, Status
 
-For each store: Store name, Cluster, L2L Bills %, L2L Qty %, Conversion %, Walk-ins FTD/MTD, Bills FTD/MTD, Qty FTD/MTD
+SYSTEM ISSUES:
+- RootFin issues → Finance operations affected
+- LMS issues → Training and compliance affected  
+- Website issues → Brand presence and SEO affected
+- Billing issues → Store operations affected
+- General IT → Infrastructure and security affected
 
-ROLE ISSUES:
-- Conversion low → Fashion Consultant problem
-- Walk-ins high, Bills low → Fashion Consultant problem  
-- Multiple cluster stores fail → Cluster Manager problem
-- Overall store poor → Store Manager problem
+TEAM ASSIGNMENT RULES:
+- **UI/UX Issues** (frontend design, user interface problems) → Assign to **UI/UX Designer**
+- **Development Issues** (backend, database, API problems) → Assign to **MERN Developer**
+- **Testing Issues** (bug reports, quality assurance, system validation) → Assign to **Software Tester**
+- **Marketing Issues** (SEO, website performance, digital marketing) → Assign to **Marketing Analyst**
+- **Project Management** (coordination, technical decisions, complex issues) → Assign to **Team Lead**
+- **Cross-functional Issues** (multiple systems affected) → Assign to **Team Lead** for coordination
+
+**TEAM LEADER PERSPECTIVE (50+ years experience):**
+- Focus on business impact and ROI
+- Prioritize based on revenue generation and operational efficiency
+- Consider technical debt and long-term scalability
+- Plan for realistic delivery timelines
+- Account for testing, deployment, and rollback strategies
+
+**SPRINT PLANNING APPROACH:**
+- Day 1-2: High priority items and critical fixes
+- Day 3-4: Medium priority features and improvements
+- Day 5: Testing, deployment, and documentation
 
 JSON only:
 {
-  "mainIssues": ["Store1: Cluster, details", "Store2: Cluster, details", "Store3: Cluster, details", "Store4: Cluster, details", "Store5: Cluster, details"],
-  "rootCauses": ["Store1 cause", "Store2 cause", "Store3 cause", "Store4 cause", "Store5 cause"],
-  "actionPlan": ["Store Manager of [Store]: action", "Fashion Consultant of [Store]: action", "Cluster Manager [North/South]: action", "Store Manager of [Store]: action", "Fashion Consultant of [Store]: action"]
+  "sprintOverview": {
+    "sprintDuration": "1 Week Sprint",
+    "totalActiveRequests": "[number]",
+    "teamCapacity": "5 members",
+    "sprintGoal": "Complete high-priority IT requests"
+  },
+  "sprintBacklog": [
+    {
+      "requestId": "[timestamp]",
+      "requester": "[Name] - [Department]",
+      "priority": "HIGH",
+      "system": "[System]",
+      "issue": "[Description]",
+      "estimatedEffort": "[X hours]",
+      "assignedTo": "[Team Member]",
+      "sprintDay": "Day 1",
+      "businessImpact": "[Impact description]"
+    }
+  ],
+  "sprintPlanning": {
+    "day1": ["High priority task 1", "Critical fix 1"],
+    "day2": ["High priority task 2", "Medium priority task 1"],
+    "day3": ["Medium priority task 2", "Feature development"],
+    "day4": ["Low priority tasks", "Code review"],
+    "day5": ["Testing", "Deployment", "Sprint review"]
+  },
+  "teamAssignment": ["Team Lead: Sprint coordination", "MERN Developer: Backend tasks", "UI/UX Designer: Frontend tasks"],
+  "riskAssessment": ["Risk: Technical complexity - Mitigation: Pair programming", "Risk: Timeline pressure - Mitigation: Scope adjustment"],
+  "successMetrics": ["All high priority requests completed", "Zero critical bugs in production"]
 }`;
 
   try {
@@ -428,7 +568,7 @@ JSON only:
     const response = await axios.post('https://openrouter.ai/api/v1/chat/completions', {
       model: selectedModel,
       messages: [
-        { role: "system", content: "You are a retail analyst who must analyze ALL stores in the data, not just one. Always provide comprehensive multi-store analysis." },
+        { role: "system", content: "You are an IT support analyst for Rootments Enterprises LLP who must analyze ALL IT support requests in the data, not just one. Always provide comprehensive multi-request analysis with company system integration." },
         { role: "user", content: prompt }
       ],
       max_tokens: 3000,
